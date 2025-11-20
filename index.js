@@ -82,10 +82,9 @@ async function run() {
           provider_name,
           email,
           provider_contact,
-          duration, // <-- duration include করা
+          duration,
         } = req.body;
 
-        // Required fields check
         if (
           !service_name ||
           !price ||
@@ -94,7 +93,7 @@ async function run() {
           !provider_name ||
           !email ||
           !provider_contact ||
-          !duration // <-- check
+          !duration
         ) {
           return res.status(400).send({ message: "All fields are required!" });
         }
@@ -107,7 +106,7 @@ async function run() {
           provider_name,
           provider_email: email,
           provider_contact,
-          duration, // <-- save duration
+          duration,
           createdAt: new Date(),
           rating: 0,
         };
@@ -137,6 +136,23 @@ async function run() {
       }
     });
 
+    // Update service rating
+    app.patch("/services/:id/rating", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { rating } = req.body;
+        const result = await servicesCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { rating: rating } }
+        );
+        res.send(result);
+      } catch (error) {
+        res
+          .status(500)
+          .send({ message: "Error updating service rating", error });
+      }
+    });
+
     /** ---------------- BOOKINGS ROUTES ---------------- */
 
     // Add booking
@@ -159,6 +175,34 @@ async function run() {
         res.send(bookings);
       } catch (error) {
         res.status(500).send({ message: "Error fetching bookings", error });
+      }
+    });
+
+    // Delete booking
+    app.delete("/bookings/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const result = await bookingsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Error deleting booking", error });
+      }
+    });
+
+    // Rate booking
+    app.patch("/bookings/:id/rate", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { rating } = req.body;
+        const result = await bookingsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { rating: rating } }
+        );
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Error rating booking", error });
       }
     });
 
