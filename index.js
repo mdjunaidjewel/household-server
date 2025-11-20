@@ -7,11 +7,11 @@ const cors = require("cors");
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middlewares
+// ---------------- MIDDLEWARES ----------------
 app.use(cors());
 app.use(express.json());
 
-// MongoDB URI
+// ---------------- MONGODB SETUP ----------------
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri, {
   serverApi: {
@@ -30,9 +30,15 @@ async function run() {
 
     console.log("Successfully connected to MongoDB!");
 
-    /** ---------------- SERVICES ROUTES ---------------- */
+    // ---------------- API ROUTES ----------------
 
-    // Get all services
+    // Basic API check
+    app.get("/api", (req, res) => {
+      res.send("Server API is Running!!!");
+    });
+
+    /** ---------------- SERVICES ---------------- */
+
     app.get("/services", async (req, res) => {
       try {
         const result = await servicesCollection.find().toArray();
@@ -42,7 +48,6 @@ async function run() {
       }
     });
 
-    // Get top 6 services by rating
     app.get("/services/top", async (req, res) => {
       try {
         const topServices = await servicesCollection
@@ -56,7 +61,6 @@ async function run() {
       }
     });
 
-    // Get service by id
     app.get("/services/:id", async (req, res) => {
       try {
         const id = req.params.id;
@@ -71,42 +75,41 @@ async function run() {
       }
     });
 
-    // Add service
     app.post("/services", async (req, res) => {
       try {
         const {
           service_name,
           price,
+          category,
           description,
           image,
           provider_name,
           email,
           provider_contact,
-          duration,
         } = req.body;
 
         if (
           !service_name ||
           !price ||
+          !category ||
           !description ||
           !image ||
           !provider_name ||
           !email ||
-          !provider_contact ||
-          !duration
+          !provider_contact
         ) {
           return res.status(400).send({ message: "All fields are required!" });
         }
 
         const newService = {
           service_name,
+          category,
           price: "$" + price,
           description,
           image,
           provider_name,
           provider_email: email,
           provider_contact,
-          duration,
           createdAt: new Date(),
           rating: 0,
         };
@@ -121,7 +124,6 @@ async function run() {
       }
     });
 
-    // Get services by provider email
     app.get("/my-services/:email", async (req, res) => {
       try {
         const email = req.params.email;
@@ -136,26 +138,6 @@ async function run() {
       }
     });
 
-    // Update service rating
-    app.patch("/services/:id/rating", async (req, res) => {
-      try {
-        const id = req.params.id;
-        const { rating } = req.body;
-        const result = await servicesCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { rating: rating } }
-        );
-        res.send(result);
-      } catch (error) {
-        res
-          .status(500)
-          .send({ message: "Error updating service rating", error });
-      }
-    });
-
-    /** ---------------- UPDATE & DELETE SERVICE ---------------- */
-
-    // Update service
     app.put("/services/:id", async (req, res) => {
       try {
         const id = req.params.id;
@@ -178,7 +160,6 @@ async function run() {
       }
     });
 
-    // Delete service
     app.delete("/services/:id", async (req, res) => {
       try {
         const id = req.params.id;
@@ -191,9 +172,24 @@ async function run() {
       }
     });
 
-    /** ---------------- BOOKINGS ROUTES ---------------- */
+    app.patch("/services/:id/rating", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { rating } = req.body;
+        const result = await servicesCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { rating: rating } }
+        );
+        res.send(result);
+      } catch (error) {
+        res
+          .status(500)
+          .send({ message: "Error updating service rating", error });
+      }
+    });
 
-    // Add booking
+    /** ---------------- BOOKINGS ---------------- */
+
     app.post("/bookings", async (req, res) => {
       try {
         const booking = req.body;
@@ -204,7 +200,6 @@ async function run() {
       }
     });
 
-    // Get bookings (optional by userEmail)
     app.get("/bookings", async (req, res) => {
       try {
         const email = req.query.email;
@@ -216,7 +211,6 @@ async function run() {
       }
     });
 
-    // Delete booking
     app.delete("/bookings/:id", async (req, res) => {
       try {
         const id = req.params.id;
@@ -229,7 +223,6 @@ async function run() {
       }
     });
 
-    // Rate booking
     app.patch("/bookings/:id/rate", async (req, res) => {
       try {
         const id = req.params.id;
@@ -244,10 +237,12 @@ async function run() {
       }
     });
 
-    /** ---------------- SERVE REACT APP ---------------- */
+    // ---------------- SERVE REACT APP ----------------
     const buildPath = path.join(__dirname, "dist");
     app.use(express.static(buildPath));
-    app.get("*", (req, res) => {
+
+    // Only catch-all for non-API routes
+    app.get(/^\/(?!api|services|bookings).*/, (req, res) => {
       res.sendFile(path.join(buildPath, "index.html"));
     });
   } catch (err) {
@@ -257,10 +252,7 @@ async function run() {
 
 run().catch(console.dir);
 
-app.get("/api", (req, res) => {
-  res.send("Server API is Running!!!");
-});
-
+// ---------------- START SERVER ----------------
 app.listen(port, () => {
   console.log(`Server is running on port: ${port}`);
 });
