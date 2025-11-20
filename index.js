@@ -24,7 +24,6 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     await client.connect();
-
     const servicesDB = client.db("servicesDB");
     const servicesCollection = servicesDB.collection("services");
     const bookingsCollection = servicesDB.collection("bookings");
@@ -33,6 +32,7 @@ async function run() {
 
     /** ---------------- SERVICES ROUTES ---------------- */
 
+    // Get all services
     app.get("/services", async (req, res) => {
       try {
         const result = await servicesCollection.find().toArray();
@@ -42,6 +42,7 @@ async function run() {
       }
     });
 
+    // Get top 6 services by rating
     app.get("/services/top", async (req, res) => {
       try {
         const topServices = await servicesCollection
@@ -51,12 +52,11 @@ async function run() {
           .toArray();
         res.send(topServices);
       } catch (error) {
-        res
-          .status(500)
-          .send({ message: "Error fetching top rated services", error });
+        res.status(500).send({ message: "Error fetching top services", error });
       }
     });
 
+    // Get service by id
     app.get("/services/:id", async (req, res) => {
       try {
         const id = req.params.id;
@@ -71,52 +71,58 @@ async function run() {
       }
     });
 
+    // Add service
     app.post("/services", async (req, res) => {
       try {
         const {
           service_name,
-          category,
           price,
           description,
           image,
           provider_name,
           email,
+          provider_contact,
+          duration, // <-- duration include করা
         } = req.body;
+
+        // Required fields check
         if (
           !service_name ||
-          !category ||
           !price ||
           !description ||
           !image ||
           !provider_name ||
-          !email
-        )
+          !email ||
+          !provider_contact ||
+          !duration // <-- check
+        ) {
           return res.status(400).send({ message: "All fields are required!" });
+        }
 
         const newService = {
           service_name,
-          category,
-          price,
+          price: "$" + price,
           description,
           image,
           provider_name,
           provider_email: email,
+          provider_contact,
+          duration, // <-- save duration
           createdAt: new Date(),
-          rating: 0, // default rating
+          rating: 0,
         };
 
         const result = await servicesCollection.insertOne(newService);
-        res
-          .status(201)
-          .send({
-            message: "Service added successfully!",
-            serviceId: result.insertedId,
-          });
+        res.status(201).send({
+          message: "Service added successfully!",
+          serviceId: result.insertedId,
+        });
       } catch (error) {
         res.status(500).send({ message: "Failed to add service", error });
       }
     });
 
+    // Get services by provider email
     app.get("/my-services/:email", async (req, res) => {
       try {
         const email = req.params.email;
@@ -131,34 +137,9 @@ async function run() {
       }
     });
 
-    app.put("/services/:id", async (req, res) => {
-      try {
-        const id = req.params.id;
-        const updateData = req.body;
-        const result = await servicesCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: updateData }
-        );
-        res.send(result);
-      } catch (error) {
-        res.status(500).send({ message: "Failed to update service", error });
-      }
-    });
-
-    app.delete("/services/:id", async (req, res) => {
-      try {
-        const id = req.params.id;
-        const result = await servicesCollection.deleteOne({
-          _id: new ObjectId(id),
-        });
-        res.send(result);
-      } catch (error) {
-        res.status(500).send({ message: "Failed to delete service", error });
-      }
-    });
-
     /** ---------------- BOOKINGS ROUTES ---------------- */
 
+    // Add booking
     app.post("/bookings", async (req, res) => {
       try {
         const booking = req.body;
@@ -169,6 +150,7 @@ async function run() {
       }
     });
 
+    // Get bookings (optional by userEmail)
     app.get("/bookings", async (req, res) => {
       try {
         const email = req.query.email;
@@ -177,73 +159,6 @@ async function run() {
         res.send(bookings);
       } catch (error) {
         res.status(500).send({ message: "Error fetching bookings", error });
-      }
-    });
-
-    app.delete("/bookings/:id", async (req, res) => {
-      try {
-        const id = req.params.id;
-        const result = await bookingsCollection.deleteOne({
-          _id: new ObjectId(id),
-        });
-        res.send(result);
-      } catch (error) {
-        res.status(500).send({ message: "Failed to delete booking", error });
-      }
-    });
-
-    /** ---------------- PATCH → Rating Routes ---------------- */
-
-    // 1️⃣ Update booking rating
-    app.patch("/bookings/:id/rate", async (req, res) => {
-      try {
-        const id = req.params.id;
-        const { rating } = req.body;
-        if (!rating)
-          return res.status(400).send({ message: "Rating is required" });
-
-        const result = await bookingsCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { rating: rating } }
-        );
-
-        res.send(result);
-      } catch (error) {
-        res
-          .status(500)
-          .send({ message: "Failed to update booking rating", error });
-      }
-    });
-
-    // 2️⃣ Update service average rating
-    app.patch("/services/:id/rating", async (req, res) => {
-      try {
-        const serviceId = req.params.id;
-
-        // Calculate average rating from all bookings of this service
-        const bookings = await bookingsCollection.find({ serviceId }).toArray();
-        if (!bookings.length)
-          return res
-            .status(400)
-            .send({ message: "No bookings for this service" });
-
-        const totalRating = bookings.reduce(
-          (sum, b) => sum + (b.rating || 0),
-          0
-        );
-        const countRated = bookings.filter((b) => b.rating).length || 1; // avoid divide by 0
-        const averageRating = totalRating / countRated;
-
-        const result = await servicesCollection.updateOne(
-          { _id: new ObjectId(serviceId) },
-          { $set: { rating: averageRating } }
-        );
-
-        res.send({ message: "Service rating updated", averageRating });
-      } catch (error) {
-        res
-          .status(500)
-          .send({ message: "Failed to update service rating", error });
       }
     });
 
