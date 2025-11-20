@@ -153,6 +153,44 @@ async function run() {
       }
     });
 
+    /** ---------------- UPDATE & DELETE SERVICE ---------------- */
+
+    // Update service
+    app.put("/services/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { service_name, category, price, description } = req.body;
+
+        const updated = await servicesCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              service_name,
+              category,
+              price,
+              description,
+            },
+          }
+        );
+        res.send(updated);
+      } catch (error) {
+        res.status(500).send({ message: "Error updating service", error });
+      }
+    });
+
+    // Delete service
+    app.delete("/services/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const deleted = await servicesCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(deleted);
+      } catch (error) {
+        res.status(500).send({ message: "Error deleting service", error });
+      }
+    });
+
     /** ---------------- BOOKINGS ROUTES ---------------- */
 
     // Add booking
