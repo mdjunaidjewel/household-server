@@ -4,11 +4,24 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
 const cors = require("cors");
 
+const admin = require("firebase-admin");
+const decoded = Buffer.from(process.env.FIREBASE_KEY, "base64").toString(
+  "utf8"
+);
+const serviceAccount = JSON.parse(decoded);
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+
 const app = express();
 const port = process.env.PORT || 3000;
 
 // ---------------- MIDDLEWARES ----------------
-app.use(cors());
+app.use(
+  cors()
+);
 app.use(express.json());
 
 // ---------------- MONGODB SETUP ----------------
@@ -23,7 +36,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     const servicesDB = client.db("servicesDB");
     const servicesCollection = servicesDB.collection("services");
     const bookingsCollection = servicesDB.collection("bookings");
@@ -237,14 +250,6 @@ async function run() {
       }
     });
 
-    // ---------------- SERVE REACT APP ----------------
-    const buildPath = path.join(__dirname, "dist");
-    app.use(express.static(buildPath));
-
-    // Only catch-all for non-API routes
-    app.get(/^\/(?!api|services|bookings).*/, (req, res) => {
-      res.sendFile(path.join(buildPath, "index.html"));
-    });
   } catch (err) {
     console.error(err);
   }
